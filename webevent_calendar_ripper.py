@@ -321,15 +321,12 @@ if __name__ == '__main__':
                         dest='year')
     args = parser.parse_args()
 
-    print args
-    print fake
-
     # Call cal-ripper
-    ical_file_string = make_ical(year=year, cal_type=cal_type) 
+    ical_file_string = make_ical(year=args.year, cal_type=args.cal_type) 
 
     # Write to File
     # ----------------------------
-    output_filename = '{0:s}_{1:s}.ics'.format(cal_type, str(year))
+    output_filename = '{0:s}_{1:s}.ics'.format(args.cal_type, str(args.year))
     # Write
     with open(output_filename, 'w') as f:
         f.write(ical_file_string)

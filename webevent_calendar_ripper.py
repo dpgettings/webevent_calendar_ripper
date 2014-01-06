@@ -1,3 +1,8 @@
+"""
+To Do:
+   1. Option to specify filename for output .ics file
+   2. 
+"""
 import time
 import urllib2
 from bs4 import BeautifulSoup as BS
@@ -20,9 +25,9 @@ ical_time_string = current_year + utc_mmdd +'T'+ utc_hhmmss +'Z'
 std_tz_hour = int(time.timezone / 3600.)
 dst_tz_hour = int(time.altzone / 3600.)
 
-# ##############################
+# ##############################################
 # UTILS -- Convert vcal event to ical event
-# ##############################
+# ##############################################
 # SubStrings to Kill from each .vcs file string
 bad_vcal_substring_list = ['BEGIN: VCALENDAR\nVERSION: 1.0\n', '\nEND: VCALENDAR\n']
 # ical format required keys and defaults
@@ -162,14 +167,6 @@ def download_calendar(year=current_year, cal_type='academic', debug=False):
     cal_socket = urllib2.urlopen(cal_url)
     cal_page_html = cal_socket.read()
 
-    # `````````````````````````````````````````````````````
-    if debug:
-        cal_dump_file = 'calendar_download.html'
-        with open(cal_dump_file,'w') as f:
-            f.write(cal_page_html)
-        print '***Wrote {0:s}***'.format(cal_dump_file)
-    # `````````````````````````````````````````````````````
-
     return cal_page_html
 
 
@@ -180,22 +177,6 @@ def parse_calendar(cal_page_html=None):
     """
     Deals with details of internal calendar-page HTML formatting
     Returns list of calendar event IDs
-
-    Option 1:  - Parse out event ID 
-               - Download .vcs file (in another function)
-               - Combine into .ics file (in another function)
-               --> Simpler
-               --> Robust against formatting changes
-               
-    Option 2:  - Parse out information
-               - Put into hierarchical dictionary
-               - Convert into VEVENT blocks (in another function)
-               - Combine into .ics file (in another function)
-               --> More complicated
-               --> More robust against .vcs API deprecation
-
-    [Going with Option 1]
-
     """
     # Make sure we actually got something
     assert cal_page_html is not None
@@ -273,14 +254,6 @@ def download_event_data(**kwargs):
 # Making ical file
 # ##############################
 def make_ical(**kwargs):
-    """
-    To Do:
-       1. If DTSTART == DTEND, make format into Google's "all day":
-          DTSTART;VALUE=DATE:20140106
-          DTEND;VALUE=DATE:20140107
-
-       2. String Security improvements?
-    """
 
     # ----------------------
     # Get List of Event Data
@@ -336,10 +309,20 @@ def make_ical(**kwargs):
 # Command-Line Invocation
 # ##############################
 if __name__ == '__main__':
+    import argparse
 
-    # Choices
-    cal_type='academic'
-    year = 2014
+    # Command-Line Argument Parsing
+    parser = argparse.ArgumentParser(description='Forcibly exporting the University of Florida WebEvent calendar to an iCalendar format file.')
+    parser.add_argument('--cal', default='academic', type=str,
+                        help="Which calendar to rip. Must be either 'academic' or 'athletic'.",
+                        choices=['academic','athletic'], dest='cal_type')
+    parser.add_argument('--year', default=2014, type=int,
+                        help="Calendar year to rip. Must be convertable to int-type.",
+                        dest='year')
+    args = parser.parse_args()
+
+    print args
+    print fake
 
     # Call cal-ripper
     ical_file_string = make_ical(year=year, cal_type=cal_type) 

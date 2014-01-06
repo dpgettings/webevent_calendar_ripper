@@ -29,7 +29,8 @@ dst_tz_hour = int(time.altzone / 3600.)
 # UTILS -- Convert vcal event to ical event
 # ##############################################
 # SubStrings to Kill from each .vcs file string
-bad_vcal_substring_list = ['BEGIN: VCALENDAR\nVERSION: 1.0\n', '\nEND: VCALENDAR\n']
+bad_vcal_substring_list = [u'BEGIN: VCALENDAR\nVERSION: 1.0\n', u'\nEND: VCALENDAR\n', 
+                           u'BEGIN: VEVENT\n', u'END: VEVENT']
 # ical format required keys and defaults
 ical_defaults = OrderedDict()
 ical_defaults['BEGIN'] = 'VEVENT'
@@ -49,6 +50,9 @@ ical_defaults['END'] = 'VEVENT'
 
 #
 def convert_vcal_to_ical(vcal_string):
+    """
+    String input is Unicode string
+    """
 
     ical_dict = {}
     ical_string_list = []
@@ -60,7 +64,7 @@ def convert_vcal_to_ical(vcal_string):
     for bad_substring in bad_vcal_substring_list:
         vcal_string = vcal_string.replace(bad_substring, '')
     # 'CLASS:' lines
-    class_line_list = re.findall('(CLASS\:.*\n)', vcal_string)
+    class_line_list = re.findall('(CLASS\:.*\n)', vcal_string, re.U)
     for class_line in class_line_list:
         vcal_string = vcal_string.replace(class_line, '')
 
@@ -68,16 +72,35 @@ def convert_vcal_to_ical(vcal_string):
     # Convert vcal string to dict
     # -----------------------------
     vcal_data_dict = {}
-    # Step 1: List of lines
-    vcal_line_list = vcal_string.split('\n')
-    # Step 2: Parse Each line for Key, Data
-    for vcal_line_string in vcal_line_list:
-        # Parse out Key, Data
-        vcal_line_key_raw = re.findall('([A-Z\-]*: )', vcal_line_string)[0]
-        vcal_line_key = vcal_line_key_raw.replace(': ','')
-        vcal_line_data = vcal_line_string.replace(vcal_line_key_raw, '')
-        # Step 3: Put into dict
+    # Step 1: Parse out Keys
+    vcal_keys_raw = re.findall('([A-Z\-]*: )', vcal_string, re.U)
+
+    # Step 2: Split vcal String into Keys and Data
+    # --------------------------------------
+    vcal_data_list = []
+    # Make First Split
+    vcal_string = vcal_string.split(vcal_keys_raw[0])[-1]
+    # 
+    for raw_key_ind,raw_key in enumerate(vcal_keys_raw[1:]):
+        # Split vcal string based on the raw key substring
+        vcal_string_split = vcal_string.split(raw_key, 1)
+        # Add Extracted Data to List
+        vcal_data_list.append(vcal_string_split[0])
+        # Keep Residual for next splitting
+        vcal_string = vcal_string_split[-1]
+    # Add the last residual string (the last piece of extracted line data)
+    vcal_data_list.append(vcal_string)
+
+    # Step 3: Process Keys, Add Keys and Data to vcal Data Dictionary
+    # -------------------------------------------------------
+    for raw_key,vcal_line_data_raw in zip(vcal_keys_raw, vcal_data_list):
+        # Process Key
+        vcal_line_key = raw_key.replace(': ','')
+        # Process Data
+        vcal_line_data = vcal_line_data_raw.rsplit('\n', 1)[0]
+        # Add to Dictionary
         vcal_data_dict[vcal_line_key] = vcal_line_data
+
 
     # ------------------------------
     # Fix the Date of All-Day Events
@@ -243,8 +266,11 @@ def download_event_data(**kwargs):
         event_data_url = '{0:s}&id={1:s}'.format(base_url, event_id_string)
         # Download Event Data
         event_data_socket = urllib2.urlopen(event_data_url)
-        event_data = event_data_socket.read()
+        event_data_ascii = event_data_socket.read()
 
+        # Decode into Unicode string
+        #event_data = event_data_ascii.decode('utf-8')
+        event_data = event_data_ascii.decode('latin-1')
         # Append to list of event data strings
         event_data_list.append(event_data)
 
@@ -258,6 +284,7 @@ def make_ical(**kwargs):
     # ----------------------
     # Get List of Event Data
     # ----------------------
+    # List of Unicode Strings
     event_data_list = download_event_data(**kwargs)
 
     # =====================================
@@ -266,13 +293,15 @@ def make_ical(**kwargs):
     cleaned_event_data_list = []
 
     # ----------------------------
-    # Clean Up Event Data Entries
+    # Convert Event Data Entries
     # ----------------------------
     # Loop through event data entries
     for event_data_string in event_data_list:
-        # Send to conversion/cleaning function
+        # Send to conversion function
+        # (Unicode in, Unicode out)
         ical_data_string = convert_vcal_to_ical(event_data_string)
         # Append to List of cleaned event entries
+        # (Still Unicode)
         cleaned_event_data_list.append(ical_data_string)
 
     # ----------------------------
@@ -329,6 +358,6 @@ if __name__ == '__main__':
     output_filename = '{0:s}_{1:s}.ics'.format(args.cal_type, str(args.year))
     # Write
     with open(output_filename, 'w') as f:
-        f.write(ical_file_string)
+        f.write(ical_file_string.encode('utf-8'))
     print 'Wrote: '+ output_filename
 
